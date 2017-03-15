@@ -9,6 +9,7 @@ from keras.utils.visualize_util import plot
 # misc helpers
 import numpy as np
 import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
 import sklearn
 
 ##############
@@ -17,8 +18,10 @@ import sklearn
 
 # inspired by http://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf
 model = Sequential()
+model.add(Cropping2D(cropping=((50,20), (0,0)), input_shape=(160,320,3)))
 # taken tip from udacity class to be around zero mean and std deviation
-model.add(Lambda(lambda x: x/127.5 - 1.,input_shape=(80, 320, 3)))
+#model.add(Lambda(lambda x: x/127.5 - 1.,input_shape=(80, 320, 3)))
+model.add(Lambda(lambda x: x/127.5 - 1.))
 model.add(Convolution2D(24,5,5,border_mode='valid', activation='relu', subsample=(2,2)))
 model.add(Convolution2D(36,5,5,border_mode='valid', activation='relu', subsample=(2,2)))
 model.add(Convolution2D(48,5,5,border_mode='valid', activation='relu', subsample=(2,2)))
@@ -98,7 +101,7 @@ def generate_arrays_from_file(drive_logs, batch_size=32):
             # nice tip from udacity class
             # trim image to only see section with road
             X_train = np.array(images)
-            X_train = X_train[:,80:,:,:] 
+            X_train = X_train[:,:,:,:] 
             y_train = np.array(labels)
             yield sklearn.utils.shuffle(X_train, y_train)
 
@@ -128,12 +131,22 @@ def train_model():
 
         # training model with custom generators
         # original set of data is multiplied with 6 because of (left,right and flip)
-        model.fit_generator(
+        history_object = model.fit_generator(
                 train_generator,
+                verbose=1,
                 samples_per_epoch=6*len(drive_train),
                 nb_epoch=nb_epoch,
                 validation_data=validation_generator,
                 nb_val_samples=6*len(drive_validation))
+
+        plt.plot(history_object.history['loss'])
+        plt.plot(history_object.history['val_loss'])
+        plt.title('model mean squared error loss')
+        plt.ylabel('mean squared error loss')
+        plt.xlabel('epoch')
+        plt.legend(['training set', 'validation set'], loc='upper right')
+        plt.savefit("training_loss.jpg")
+        plt.show()
    
         model.save('model.h5')
 
