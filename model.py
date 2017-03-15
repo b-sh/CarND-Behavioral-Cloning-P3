@@ -1,10 +1,11 @@
 # keras
 from keras.models import Model, Sequential
 from keras.layers.normalization import BatchNormalization
-from keras.layers.core import Flatten, Dense, Lambda
-from keras.layers.convolutional import Convolution2D
+from keras.layers.core import Flatten, Dense, Lambda, Dropout
+from keras.layers.convolutional import Convolution2D, Cropping2D
 from keras.preprocessing.image import ImageDataGenerator
 from keras.utils.visualize_util import plot
+from keras.callbacks import TensorBoard
 
 # misc helpers
 import numpy as np
@@ -18,15 +19,21 @@ import sklearn
 
 # inspired by http://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf
 model = Sequential()
-model.add(Cropping2D(cropping=((50,20), (0,0)), input_shape=(160,320,3)))
+model.add(Cropping2D(cropping=((60,20), (0,0)), input_shape=(160,320,3)))
 # taken tip from udacity class to be around zero mean and std deviation
 #model.add(Lambda(lambda x: x/127.5 - 1.,input_shape=(80, 320, 3)))
 model.add(Lambda(lambda x: x/127.5 - 1.))
+model.add(Dropout(0.2))
 model.add(Convolution2D(24,5,5,border_mode='valid', activation='relu', subsample=(2,2)))
+model.add(Dropout(0.2))
 model.add(Convolution2D(36,5,5,border_mode='valid', activation='relu', subsample=(2,2)))
+model.add(Dropout(0.2))
 model.add(Convolution2D(48,5,5,border_mode='valid', activation='relu', subsample=(2,2)))
+model.add(Dropout(0.2))
 model.add(Convolution2D(64,3,3,border_mode='valid', activation='relu', subsample=(1,1)))
+model.add(Dropout(0.2))
 model.add(Convolution2D(64,3,3,border_mode='valid', activation='relu', subsample=(1,1)))
+model.add(Dropout(0.2))
 model.add(Flatten())
 model.add(Dense(1164, activation="relu"))
 model.add(Dense(100, activation="relu"))
@@ -48,7 +55,11 @@ drive_logs_recover = open("track1_recover/driving_log.csv").readlines()
 #drive_logs_track2_new = open("track2_new/driving_log.csv").readlines()
 
 #drive_logs = drive_logs_center + drive_logs_curves + drive_logs_recover + drive_logs_track2 + drive_logs_track2_new
-drive_logs = drive_logs_center + drive_logs_curves + drive_logs_recover
+
+#drive_logs = drive_logs_center + drive_logs_curves + drive_logs_recover
+
+# used preprocessed data
+drive_logs = open("driving_prepared_data.csv").readlines()
 
 #####################
 # Generator setup   #
@@ -77,11 +88,13 @@ def generate_arrays_from_file(drive_logs, batch_size=32):
 
                 # augmenting data
                 image_center_flip = np.fliplr(image)
-                image_left_flip   = np.fliplr(image_left)
-                image_right_flip  = np.fliplr(image_right)
+                image_left_flip   = np.fliplr(image_right)
+                image_right_flip  = np.fliplr(image_left)
 
-                label_left  = label + correction
-                label_right = label - correction
+                label_left        = label + correction
+                label_right       = label - correction
+                label_left_flip   = -label_right
+                label_right_flip  = -label_left
 
                 images.append(image)
                 labels.append(label)
@@ -94,9 +107,9 @@ def generate_arrays_from_file(drive_logs, batch_size=32):
                 images.append(image_center_flip)
                 labels.append(-label)
                 images.append(image_left_flip)
-                labels.append(-label_left)
+                labels.append(label_left_flip)
                 images.append(image_right_flip)
-                labels.append(-label_right)
+                labels.append(label_right_flip)
 
             # nice tip from udacity class
             # trim image to only see section with road
@@ -118,7 +131,7 @@ drive_train, drive_validation = train_test_split(drive_logs, test_size=0.3)
 ##############
 
 def train_model():
-        nb_epoch = 5
+        nb_epoch = 15
 
         # setup generators for training and validation
         train_generator      = generate_arrays_from_file(drive_train)
@@ -129,6 +142,10 @@ def train_model():
                 loss='mse',
                 metrics=['mse'])
 
+        # activating tensorboard visualization to write some logs
+        # does not work for fit_generator
+        #cbk_viz = TensorBoard(log_dir='./logs', histogram_freq=1, write_graph=True, write_images=True)
+
         # training model with custom generators
         # original set of data is multiplied with 6 because of (left,right and flip)
         history_object = model.fit_generator(
@@ -137,7 +154,9 @@ def train_model():
                 samples_per_epoch=6*len(drive_train),
                 nb_epoch=nb_epoch,
                 validation_data=validation_generator,
-                nb_val_samples=6*len(drive_validation))
+                nb_val_samples=6*len(drive_validation),
+                #callbacks=[cbk_viz]
+                )
 
         plt.plot(history_object.history['loss'])
         plt.plot(history_object.history['val_loss'])
@@ -145,8 +164,7 @@ def train_model():
         plt.ylabel('mean squared error loss')
         plt.xlabel('epoch')
         plt.legend(['training set', 'validation set'], loc='upper right')
-        plt.savefit("training_loss.jpg")
-        plt.show()
+        plt.savefig("output/training_loss.jpg")
    
         model.save('model.h5')
 
