@@ -8,6 +8,9 @@ import matplotlib.pyplot as plt
 # Data parsing      #
 #####################
 
+output = "output/"
+output_augmented = None
+
 drive_logs_center = open("track1_stay_center/driving_log.csv").readlines()
 
 drive_logs_curves = open("track1_curves/driving_log.csv").readlines()
@@ -22,10 +25,13 @@ drive_logs = drive_logs_center + drive_logs_curves + drive_logs_recover
 drive_logs_prepared = open("driving_prepared_data.csv").readlines()
 
 def get_data_set(dataset):
+        path = output
+        if output_augmented:
+                path = output + output_augmented
         nb_lines        = len(dataset)
         print("Data size",nb_lines)
         batch_size      = 32
-        correction      = 0.25
+        correction      = 0.1
         images          = []
         angles          = []
         printed         = False
@@ -54,20 +60,21 @@ def get_data_set(dataset):
 
                         images.append(image)
                         angles.append(label)
-                        images.append(image_left)
-                        angles.append(label_left)
-                        images.append(image_right)
-                        angles.append(label_right)
+                        if output_augmented:
+                                images.append(image_left)
+                                angles.append(label_left)
+                                images.append(image_right)
+                                angles.append(label_right)
 
-                        # flipped images 
-                        images.append(image_center_flip)
-                        angles.append(-label)
-                        images.append(image_left_flip)
-                        angles.append(label_left_flip)
-                        images.append(image_right_flip)
-                        angles.append(label_right_flip)
+                                # flipped images 
+                                images.append(image_center_flip)
+                                angles.append(-label)
+                                images.append(image_left_flip)
+                                angles.append(label_left_flip)
+                                images.append(image_right_flip)
+                                angles.append(label_right_flip)
 
-                        if not printed and label != 0.0:
+                        if not printed and label != 0.0 and output_augmented:
                             fig_orig, ax_orig = plt.subplots(1, 3)
                             fig_orig.suptitle("Left center and right camera angles", fontsize=12, horizontalalignment="center", verticalalignment="bottom")
 
@@ -84,14 +91,14 @@ def get_data_set(dataset):
                             ax_orig[2].axis("off")
                             
                             plt.subplots_adjust(top=1.5)
-                            plt.savefig("augmented_data_orig.jpg", bbox_inches='tight', pad_inches = 0)
+                            plt.savefig(path + "augmented_data_orig.jpg", bbox_inches='tight', pad_inches = 0)
                             plt.close()
 
                             fig_flipped, ax_flipped = plt.subplots(1, 3)
                             fig_flipped.suptitle("Left center and right camera angles flipped", fontsize=12)
 
                             ax_flipped[0].imshow(image_left_flip)
-                            ax_flipped[0].set_title(str(-label_left_flip), fontsize=8, loc="left")
+                            ax_flipped[0].set_title(str(label_left_flip), fontsize=8, loc="left")
                             ax_flipped[0].axis("off")
 
                             ax_flipped[1].imshow(image_center_flip)
@@ -99,18 +106,18 @@ def get_data_set(dataset):
                             ax_flipped[1].axis("off")
 
                             ax_flipped[2].imshow(image_right_flip)
-                            ax_flipped[2].set_title(str(-label_right_flip), fontsize=8, loc="left")
+                            ax_flipped[2].set_title(str(label_right_flip), fontsize=8, loc="left")
                             ax_flipped[2].axis("off")
 
                             plt.subplots_adjust(top=1.5)
-                            plt.savefig("augmented_data_flipped.jpg", bbox_inches='tight', pad_inches = 0)
+                            plt.savefig(path + "augmented_data_flipped.jpg", bbox_inches='tight', pad_inches = 0)
                             plt.close()
                             printed = True
 
         return images, angles
 
 def create_plot(data_set, name, normed=False):
-        n, ret_bins, patches = plt.hist(angles, bins="auto", normed=normed)
+        n, ret_bins, patches = plt.hist(data_set, bins="auto", normed=normed)
         print("Max n",np.max(n))
         print("N;",n)
         print("Bins",ret_bins)
@@ -125,33 +132,42 @@ def create_plot(data_set, name, normed=False):
                 plt.ylabel('count')
         plt.xlabel('steering angles')
         plt.title('Histogram of '+name+' driving angles')
-        plt.savefig("result_hist_"+name+".jpg")
+        path = output
+        if output_augmented:
+                path = output + output_augmented
+        plt.savefig(path + "result_hist_"+name+".jpg")
         plt.close()
 
-images, angles = get_data_set(drive_logs_curves)
-print("Angles",len(angles))
-create_plot(angles, "curves", True)
-create_plot(angles, "curves_count")
+def analyse():
+        images, angles = get_data_set(drive_logs_curves)
+        print("Angles",len(angles))
+        create_plot(angles, "curves", True)
+        create_plot(angles, "curves_count")
 
-images, angles = get_data_set(drive_logs_center)
-print("Angles",len(angles))
-create_plot(angles, "center", True)
-create_plot(angles, "center_count")
+        images, angles = get_data_set(drive_logs_center)
+        print("Angles",len(angles))
+        create_plot(angles, "center", True)
+        create_plot(angles, "center_count")
 
-images, angles = get_data_set(drive_logs_recover)
-print("Angles",len(angles))
-create_plot(angles, "recover", True)
-create_plot(angles, "recover_count")
+        images, angles = get_data_set(drive_logs_recover)
+        print("Angles",len(angles))
+        create_plot(angles, "recover", True)
+        create_plot(angles, "recover_count")
 
-images, angles = get_data_set(drive_logs)
-print("Angles",len(angles))
-create_plot(angles, "all", True)
-create_plot(angles, "all_count")
+        images, angles = get_data_set(drive_logs)
+        print("Angles",len(angles))
+        create_plot(angles, "all", True)
+        create_plot(angles, "all_count")
 
-images, angles = get_data_set(drive_logs_prepared)
-print("Angles",len(angles))
-create_plot(angles, "all_prepared", True)
-create_plot(angles, "all_prepared_count")
+        images, angles = get_data_set(drive_logs_prepared)
+        print("Angles",len(angles))
+        create_plot(angles, "all_prepared", True)
+        create_plot(angles, "all_prepared_count")
+        return images, angles
+
+angs = []
+imgs = []
+imgs, angs = analyse()
 
 fig, axarr = plt.subplots(4, 5)
 fig.suptitle("Some sample images from recorded data", fontsize=16)
@@ -159,10 +175,10 @@ fig.suptitle("Some sample images from recorded data", fontsize=16)
 i = 0
 j = 0
 prev_angles = []
-for idx, angle in enumerate(angles):
+for idx, angle in enumerate(angs):
         if angle in prev_angles:
                 continue
-        axarr[i, j].imshow(images[idx])
+        axarr[i, j].imshow(imgs[idx])
         axarr[i, j].set_title(str(angle), fontsize=8, loc="left")
         axarr[i, j].axis("off")
         if i == 3 and j == 4:
@@ -174,5 +190,8 @@ for idx, angle in enumerate(angles):
                 j += 1
         prev_angles.append(angle)
 
-plt.savefig("sample_images.jpg")
+plt.savefig(output + "sample_images.jpg")
 plt.close()
+
+output_augmented = "augmented/"
+analyse()
