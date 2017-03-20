@@ -82,7 +82,7 @@ For better balance additional data were augmented by flipping image and adjustin
 
 Flipped:
 
-![Histogram recover](output/augmented/augmented_data_flipped.jpg)
+![Histogram flipped](output/augmented/augmented_data_flipped.jpg)
 
 Furthermore the data of angle 0.0 was sampled only each 15th time.
 
